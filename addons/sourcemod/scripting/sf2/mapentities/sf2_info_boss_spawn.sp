@@ -42,6 +42,7 @@ methodmap SF2BossSpawnEntity < SF2SpawnPointBaseEntity
 		{
 			return this.GetProp(Prop_Data, "sf2_iMaxBosses");
 		}
+
 		public set(int value)
 		{
 			this.SetProp(Prop_Data, "sf2_iMaxBosses", value);
@@ -77,7 +78,7 @@ methodmap SF2BossSpawnEntity < SF2SpawnPointBaseEntity
 			NPCGetProfile(bossIndex, profile, sizeof(profile));
 			if (strcmp(profile, targetProfile) == 0)
 			{
-				SpawnSlender(view_as<SF2NPC_BaseNPC>(bossIndex), pos);
+				SpawnSlender(SF2NPC_BaseNPC(bossIndex), pos);
 				count++;
 
 				int bossEntIndex = NPCGetEntIndex(bossIndex);
@@ -88,6 +89,43 @@ methodmap SF2BossSpawnEntity < SF2SpawnPointBaseEntity
 				}
 			}
 		}
+	}
+
+	public void SpawnRandom()
+	{
+		/*ArrayList bossList = GetBossProfileList();
+		char profile[SF2_MAX_PROFILE_NAME_LENGTH];
+
+		bossList.GetString(GetRandomInt(0, bossList.Length - 1), profile, sizeof(profile));
+
+		float pos[3]; float ang[3];
+		this.GetAbsOrigin(pos);
+		this.GetAbsAngles(ang);
+
+		int count = 0;
+		int maxCount = this.MaxBosses;
+
+		for (int bossIndex = 0; bossIndex < MAX_BOSSES && count < maxCount; bossIndex++)
+		{
+			if (!NPCIsValid(bossIndex))
+			{
+				continue;
+			}
+
+			NPCGetProfile(bossIndex, profile, sizeof(profile));
+			if (strcmp(profile, targetProfile) == 0)
+			{
+				SpawnSlender(SF2NPC_BaseNPC(bossIndex), pos);
+				count++;
+
+				int bossEntIndex = NPCGetEntIndex(bossIndex);
+				if (IsValidEntity(bossEntIndex))
+				{
+					TeleportEntity(bossEntIndex, NULL_VECTOR, ang, NULL_VECTOR);
+					this.FireOutput("OnSpawn", bossEntIndex);
+				}
+			}
+		}*/
 	}
 
 	public static void Initialize()
@@ -104,6 +142,7 @@ static void Initialize()
 		.DefineStringField("sf2_szBossProfile", _, "profile")
 		.DefineIntField("sf2_iMaxBosses", _, "max")
 		.DefineInputFunc("Spawn", InputFuncValueType_Void, InputSpawn)
+		.DefineInputFunc("SpawnRandom", InputFuncValueType_Void, InputSpawnRandom)
 		.DefineInputFunc("SetBossProfile", InputFuncValueType_String, InputSetBossProfile)
 		.EndDataMapDesc();
 	g_EntityFactory.Install();
@@ -124,6 +163,12 @@ static void InputSpawn(int entity, int activator, int caller)
 {
 	SF2BossSpawnEntity thisEnt = SF2BossSpawnEntity(entity);
 	thisEnt.Spawn();
+}
+
+static void InputSpawnRandom(int entity, int activator, int caller)
+{
+	SF2BossSpawnEntity thisEnt = SF2BossSpawnEntity(entity);
+	thisEnt.SpawnRandom();
 }
 
 static void InputSetBossProfile(int entity, int activator, int caller, const char[] value)

@@ -34,6 +34,7 @@ methodmap SF2GamerulesEntity < CBaseEntity
 		{
 			return this.GetProp(Prop_Data, "sf2_iMaxPlayers");
 		}
+
 		public set(int value)
 		{
 			this.SetProp(Prop_Data, "sf2_iMaxPlayers", value);
@@ -46,6 +47,7 @@ methodmap SF2GamerulesEntity < CBaseEntity
 		{
 			return this.GetProp(Prop_Data, "sf2_iMaxPages");
 		}
+
 		public set(int value)
 		{
 			this.SetProp(Prop_Data, "sf2_iMaxPages", value);
@@ -84,6 +86,7 @@ methodmap SF2GamerulesEntity < CBaseEntity
 		{
 			return this.GetProp(Prop_Data, "sf2_iInitialTimeLimit");
 		}
+
 		public set(int value)
 		{
 			this.SetProp(Prop_Data, "sf2_iInitialTimeLimit", value);
@@ -96,6 +99,7 @@ methodmap SF2GamerulesEntity < CBaseEntity
 		{
 			return this.GetProp(Prop_Data, "sf2_iPageCollectAddTime");
 		}
+
 		public set(int value)
 		{
 			this.SetProp(Prop_Data, "sf2_iPageCollectAddTime", value);
@@ -118,6 +122,7 @@ methodmap SF2GamerulesEntity < CBaseEntity
 		{
 			return this.GetProp(Prop_Data, "sf2_iPageCollectSoundPitch");
 		}
+
 		public set(int value)
 		{
 			this.SetProp(Prop_Data, "sf2_iPageCollectSoundPitch", value);
@@ -128,8 +133,9 @@ methodmap SF2GamerulesEntity < CBaseEntity
 	{
 		public get()
 		{
-			return !!this.GetProp(Prop_Data, "sf2_bInfiniteFlashlight");
+			return this.GetProp(Prop_Data, "sf2_bInfiniteFlashlight") != 0;
 		}
+
 		public set(bool value)
 		{
 			this.SetProp(Prop_Data, "sf2_bInfiniteFlashlight", value);
@@ -140,8 +146,9 @@ methodmap SF2GamerulesEntity < CBaseEntity
 	{
 		public get()
 		{
-			return !!this.GetProp(Prop_Data, "sf2_bInfiniteSprint");
+			return this.GetProp(Prop_Data, "sf2_bInfiniteSprint") != 0;
 		}
+
 		public set(bool value)
 		{
 			this.SetProp(Prop_Data, "sf2_bInfiniteSprint", value);
@@ -152,8 +159,9 @@ methodmap SF2GamerulesEntity < CBaseEntity
 	{
 		public get()
 		{
-			return !!this.GetProp(Prop_Data, "sf2_bInfiniteBlink");
+			return this.GetProp(Prop_Data, "sf2_bInfiniteBlink") != 0;
 		}
+
 		public set(bool value)
 		{
 			this.SetProp(Prop_Data, "sf2_bInfiniteBlink", value);
@@ -164,8 +172,9 @@ methodmap SF2GamerulesEntity < CBaseEntity
 	{
 		public get()
 		{
-			return !!this.GetProp(Prop_Data, "sf2_bBossesChaseEndlessly");
+			return this.GetProp(Prop_Data, "sf2_bBossesChaseEndlessly") != 0;
 		}
+
 		public set(bool value)
 		{
 			this.SetProp(Prop_Data, "sf2_bBossesChaseEndlessly", value);
@@ -176,8 +185,9 @@ methodmap SF2GamerulesEntity < CBaseEntity
 	{
 		public get()
 		{
-			return !!this.GetProp(Prop_Data, "sf2_bEscapeToWin");
+			return this.GetProp(Prop_Data, "sf2_bEscapeToWin") != 0;
 		}
+
 		public set(bool value)
 		{
 			this.SetProp(Prop_Data, "sf2_bEscapeToWin", value);
@@ -190,6 +200,7 @@ methodmap SF2GamerulesEntity < CBaseEntity
 		{
 			return this.GetProp(Prop_Data, "sf2_iEscapeTimeLimit");
 		}
+
 		public set(int value)
 		{
 			this.SetProp(Prop_Data, "sf2_iEscapeTimeLimit", value);
@@ -226,8 +237,9 @@ methodmap SF2GamerulesEntity < CBaseEntity
 	{
 		public get()
 		{
-			return !!this.GetProp(Prop_Data, "sf2_bStopPageMusicOnEscape");
+			return this.GetProp(Prop_Data, "sf2_bStopPageMusicOnEscape") != 0;
 		}
+
 		public set(bool value)
 		{
 			this.SetProp(Prop_Data, "sf2_bStopPageMusicOnEscape", value);
@@ -238,8 +250,9 @@ methodmap SF2GamerulesEntity < CBaseEntity
 	{
 		public get()
 		{
-			return !!this.GetProp(Prop_Data, "sf2_bSurvive");
+			return this.GetProp(Prop_Data, "sf2_bSurvive") != 0;
 		}
+
 		public set(bool value)
 		{
 			this.SetProp(Prop_Data, "sf2_bSurvive", value);
@@ -252,6 +265,7 @@ methodmap SF2GamerulesEntity < CBaseEntity
 		{
 			return this.GetProp(Prop_Data, "sf2_iSurviveUntilTime");
 		}
+
 		public set(int value)
 		{
 			this.SetProp(Prop_Data, "sf2_iSurviveUntilTime", value);
@@ -294,6 +308,7 @@ methodmap SF2GamerulesEntity < CBaseEntity
 		{
 			return this.GetPropFloat(Prop_Data, "sf2_flIntroFadeHoldTime");
 		}
+
 		public set(float value)
 		{
 			this.SetPropFloat(Prop_Data, "sf2_flIntroFadeHoldTime", value);
@@ -306,6 +321,7 @@ methodmap SF2GamerulesEntity < CBaseEntity
 		{
 			return this.GetPropFloat(Prop_Data, "sf2_flIntroFadeTime");
 		}
+
 		public set(float value)
 		{
 			this.SetPropFloat(Prop_Data, "sf2_flIntroFadeTime", value);
@@ -344,9 +360,56 @@ methodmap SF2GamerulesEntity < CBaseEntity
 		{
 			return this.GetPropFloat(Prop_Data, "sf2_flIntroTextDelay");
 		}
+
 		public set(float value)
 		{
 			this.SetPropFloat(Prop_Data, "sf2_flIntroTextDelay", value);
+		}
+	}
+
+	public void GetCustomEscapeMessage(char[] buffer, int bufferLen)
+	{
+		this.GetPropString(Prop_Data, "sf2_szCustomEscapeMessage", buffer, bufferLen);
+	}
+
+	public void SetCustomEscapeMessage(const char[] buffer)
+	{
+		this.SetPropString(Prop_Data, "sf2_szCustomEscapeMessage", buffer);
+	}
+
+	public void GetCustomPageMessage(char[] buffer, int bufferLen)
+	{
+		this.GetPropString(Prop_Data, "sf2_szCustomPageMessage", buffer, bufferLen);
+	}
+
+	public void SetCustomPageMessage(const char[] buffer)
+	{
+		this.SetPropString(Prop_Data, "sf2_szCustomPageMessage", buffer);
+	}
+
+	property bool SurviveInverted
+	{
+		public get()
+		{
+			return this.GetProp(Prop_Data, "sf2_bSurviveInverted") != 0;
+		}
+
+		public set(bool value)
+		{
+			this.SetProp(Prop_Data, "sf2_bSurviveInverted", value);
+		}
+	}
+
+	property int SurviveInvertedCurrentTime
+	{
+		public get()
+		{
+			return this.GetProp(Prop_Data, "sf2_iSurviveInvertedCurrentTime");
+		}
+
+		public set(int value)
+		{
+			this.SetProp(Prop_Data, "sf2_iSurviveInvertedCurrentTime", value);
 		}
 	}
 }
@@ -389,11 +452,18 @@ static void Initialize()
 		.DefineFloatField("sf2_flIntroFadeTime", _, "introfadetime")
 		.DefineStringField("sf2_szIntroTextName", _, "introtextname")
 		.DefineFloatField("sf2_flIntroTextDelay", _, "introtextdelay")
+		.DefineStringField("sf2_szCustomEscapeMessage", _, "customescapemessage")
+		.DefineStringField("sf2_szCustomPageMessage", _, "custompagemessage")
+		.DefineBoolField("sf2_bSurviveInverted", _, "surviveinverted")
+		.DefineIntField("sf2_iSurviveInvertedCurrentTime", _, "surviveinvertedcurrenttime")
 		.DefineInputFunc("SetTimeLimit", InputFuncValueType_Integer, InputSetTimeLimit)
 		.DefineInputFunc("SetSurviveUntilTime", InputFuncValueType_Integer, InputSetSurviveUntilTime)
 		.DefineInputFunc("SetEscapeTimeLimit", InputFuncValueType_Integer, InputSetEscapeTimeLimit)
 		.DefineInputFunc("SetTime", InputFuncValueType_Integer, InputSetTime)
 		.DefineInputFunc("AddTime", InputFuncValueType_Integer, InputAddTime)
+		.DefineInputFunc("SetSurviveInvertedTime", InputFuncValueType_Integer, InputSetSurviveInvertedTime)
+		.DefineInputFunc("AddSurviveInvertedTime", InputFuncValueType_Integer, InputAddSurviveInvertedTime)
+		.DefineInputFunc("SubtractSurviveInvertedTime", InputFuncValueType_Integer, InputSubtractSurviveInvertedTime)
 		.DefineInputFunc("SetTimeToAddOnCollectPage", InputFuncValueType_Integer, InputSetTimeToAddOnCollectPage)
 		.DefineInputFunc("SetCollectedPages", InputFuncValueType_Integer, InputSetCollectedPages)
 		.DefineInputFunc("AddCollectedPages", InputFuncValueType_Integer, InputAddCollectedPages)
@@ -415,6 +485,7 @@ static void Initialize()
 		.DefineInputFunc("EndGracePeriod", InputFuncValueType_Void, InputEndGracePeriod)
 		.DefineInputFunc("PauseTimer", InputFuncValueType_Void, InputPauseTimer)
 		.DefineInputFunc("ResumeTimer", InputFuncValueType_Void, InputResumeTimer)
+		.DefineInputFunc("ForcePlayersIntoGame", InputFuncValueType_Integer, InputForcePlayersIntoGame)
 		.DefineOutput("OnGracePeriodEnded")
 		.DefineOutput("OnDifficultyChanged")
 		.DefineOutput("OnStateEnterWaiting")
@@ -488,6 +559,8 @@ static void OnCreated(int entity)
 	thisEnt.StopPageMusicOnEscape = false;
 	thisEnt.Survive = g_SurvivalMapConVar.BoolValue;
 	thisEnt.SurviveUntilTime = g_TimeEscapeSurvivalConVar.IntValue;
+	thisEnt.SurviveInverted = g_SurvivalInvertedMapConVar.BoolValue;
+	thisEnt.SurviveInvertedCurrentTime = 0;
 
 	thisEnt.InfiniteFlashlight = false;
 	thisEnt.InfiniteSprint = false;
@@ -690,6 +763,38 @@ static void InputAddTime(int entity, int activator, int caller, int value)
 	SetRoundTime(value);
 }
 
+static void InputSetSurviveInvertedTime(int entity, int activator, int caller, int value)
+{
+	if (value < 0)
+	{
+		value = 0;
+	}
+
+	SetRoundTime(value);
+}
+
+static void InputAddSurviveInvertedTime(int entity, int activator, int caller, int value)
+{
+	value = g_RoundTime + value;
+	if (value < 0)
+	{
+		value = 0;
+	}
+
+	SetRoundTime(value);
+}
+
+static void InputSubtractSurviveInvertedTime(int entity, int activator, int caller, int value)
+{
+	value = g_RoundTime - value;
+	if (value < 0)
+	{
+		value = 0;
+	}
+
+	SetRoundTime(value);
+}
+
 static void InputSetTimeToAddOnCollectPage(int entity, int activator, int caller, int value)
 {
 	g_RoundTimeGainFromPage = value;
@@ -822,4 +927,9 @@ static void InputPauseTimer(int entity, int activator, int caller)
 static void InputResumeTimer(int entity, int activator, int caller)
 {
 	SetRoundTimerPaused(false);
+}
+
+static void InputForcePlayersIntoGame(int entity, int activator, int caller, int value)
+{
+	ForceInNextPlayersInQueue(value);
 }

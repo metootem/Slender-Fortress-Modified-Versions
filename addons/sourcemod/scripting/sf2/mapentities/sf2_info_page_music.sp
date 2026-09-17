@@ -39,8 +39,9 @@ methodmap SF2PageMusicEntity < CBaseEntity
 	{
 		public get()
 		{
-			return !!this.GetProp(Prop_Data, "sf2_bLayered");
+			return this.GetProp(Prop_Data, "sf2_bLayered") != 0;
 		}
+
 		public set(bool value)
 		{
 			this.SetProp(Prop_Data, "sf2_bLayered", value);
@@ -53,6 +54,7 @@ methodmap SF2PageMusicEntity < CBaseEntity
 		{
 			return view_as<ArrayList>(this.GetProp(Prop_Data, "sf2_hRanges"));
 		}
+
 		public set(ArrayList value)
 		{
 			this.SetProp(Prop_Data, "sf2_hRanges", value);
@@ -106,7 +108,17 @@ methodmap SF2PageMusicEntity < CBaseEntity
 			this.GetRange(i, rangeData);
 			if (num >= rangeData.Min && num <= rangeData.Max)
 			{
-				strcopy(buffer, bufferLen, rangeData.Music);
+				char buffer2[PLATFORM_MAX_PATH];
+				if (StrContains(rangeData.Music, "#") < 0)
+				{
+					FormatEx(buffer2, sizeof(buffer2), "#%s", rangeData.Music);
+				}
+				else
+				{
+					strcopy(buffer2, bufferLen, rangeData.Music);
+				}
+
+				strcopy(buffer, bufferLen, buffer2);
 				return true;
 			}
 		}
@@ -249,7 +261,13 @@ static void OnSpawn(int entity)
 
 		// Get the range music from keyvalue.
 		thisEnt.GetRangeMusicKeyValue((i + 1), buffer, sizeof(buffer));
-		strcopy(rangeData.Music, PLATFORM_MAX_PATH, buffer);
+		if (StrContains(buffer, "#") < 0)
+		{
+			char buffer2[PLATFORM_MAX_PATH];
+			strcopy(buffer2, sizeof(buffer2), buffer);
+			FormatEx(buffer, sizeof(buffer), "#%s", buffer2);
+		}
+		strcopy(rangeData.Music, PLATFORM_MAX_PATH, buffer);		
 
 		// Precache, or else...
 		if (rangeData.Music[0] != '\0')
@@ -258,5 +276,6 @@ static void OnSpawn(int entity)
 		}
 
 		thisEnt.SetRange(i, rangeData);
+		LogMessage("new range data: %s", rangeData.Music);
 	}
 }

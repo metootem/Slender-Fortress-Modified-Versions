@@ -29,6 +29,14 @@ methodmap SF2NPC_BaseNPC
 		}
 	}
 
+	property PathFollower Path
+	{
+		public get()
+		{
+			return g_BossPathFollower[this.Index];
+		}
+	}
+
 	property int ProfileIndex
 	{
 		public get()
@@ -53,6 +61,16 @@ methodmap SF2NPC_BaseNPC
 		}
 	}
 
+	public static SF2NPC_BaseNPC FromUniqueId(int uniqueID)
+	{
+		return SF2NPC_BaseNPC(NPCGetFromUniqueID(uniqueID));
+	}
+
+	public static SF2NPC_BaseNPC FromEntity(int entity)
+	{
+		return SF2NPC_BaseNPC(NPCGetFromEntIndex(entity));
+	}
+
 	property int EntRef
 	{
 		public get()
@@ -69,12 +87,36 @@ methodmap SF2NPC_BaseNPC
 		}
 	}
 
+	public SF2BossProfileData GetProfileData()
+	{
+		return NPCGetProfileData(this.Index);
+	}
+
+	public void SetProfileData(SF2BossProfileData value)
+	{
+		NPCSetProfileData(this.Index, value);
+	}
+
+	property int Difficulty
+	{
+		public get()
+		{
+			return GetLocalGlobalDifficulty(this.Index);
+		}
+
+		public set(int value)
+		{
+			NPCChaserSetBoxingDifficulty(this.Index, value);
+		}
+	}
+
 	property int Flags
 	{
 		public get()
         {
             return NPCGetFlags(this.Index);
         }
+
 		public set(int flags)
 		{
 			NPCSetFlags(this.Index, flags);
@@ -97,27 +139,21 @@ methodmap SF2NPC_BaseNPC
 		}
 	}
 
-	property int RaidHitbox
+	public bool GetModel(int modelState = 0, char[] buffer, int bufferLen)
+	{
+		return GetSlenderModel(this.Index, modelState, buffer, bufferLen);
+	}
+
+	public int GetMaxCopies(int difficulty)
+	{
+		return g_SlenderMaxCopies[this.Index][difficulty];
+	}
+
+	property bool RaidHitbox
 	{
 		public get()
 		{
 			return NPCGetRaidHitbox(this.Index);
-		}
-	}
-
-	property float TurnRate
-	{
-		public get()
-		{
-			return NPCGetTurnRate(this.Index);
-		}
-	}
-
-	property float FOV
-	{
-		public get()
-		{
-			return NPCGetFOV(this.Index);
 		}
 	}
 
@@ -137,11 +173,37 @@ methodmap SF2NPC_BaseNPC
 		}
 	}
 
-	property float InstantKillRadius
+	property SF2NPC_BaseNPC CopyMaster
 	{
 		public get()
 		{
-			return NPCGetInstantKillRadius(this.Index);
+			return NPCGetCopyMaster(this);
+		}
+
+		public set(SF2NPC_BaseNPC value)
+		{
+			g_SlenderCopyMaster[this.Index] = value.Index;
+		}
+	}
+
+	property bool IsCopy
+	{
+		public get()
+		{
+			return this.CopyMaster.IsValid();
+		}
+	}
+
+	property SF2NPC_BaseNPC CompanionMaster
+	{
+		public get()
+		{
+			return NPCGetCompanionMaster(this);
+		}
+
+		public set(SF2NPC_BaseNPC value)
+		{
+			g_SlenderCompanionMaster[this.Index] = value.Index;
 		}
 	}
 
@@ -173,6 +235,26 @@ methodmap SF2NPC_BaseNPC
 		return NPCGetTeleportPersistencyPeriod(this.Index, difficulty);
 	}
 
+	public int GetTeleportMaxTargeted(int difficulty)
+	{
+		return NPCGetTeleportMaxTargetted(this.Index, difficulty);
+	}
+
+	public int SetTeleportMaxTargeted(int difficulty, int value)
+	{
+		return NPCSetTeleportMaxTargeted(this.Index, difficulty, value);
+	}
+
+	public bool GetTeleportIgnoreTargeted(int difficulty)
+	{
+		return NPCGetTeleportIgnoreTargeted(this.Index, difficulty);
+	}
+
+	public void SetTeleportIgnoreTargeted(int difficulty, bool value)
+	{
+		NPCSetTeleportIgnoreTargeted(this.Index, difficulty, value);
+	}
+
 	public int GetTeleporter(int teleporterNumber)
 	{
 		return NPCGetTeleporter(this.Index, teleporterNumber);
@@ -183,12 +265,34 @@ methodmap SF2NPC_BaseNPC
 		NPCSetTeleporter(this.Index, teleporterNumber, entity);
 	}
 
+	property int TeleportTarget
+	{
+		public get()
+		{
+			return EntRefToEntIndex(g_SlenderTeleportTarget[this.Index]);
+		}
+
+		public set(int target)
+		{
+			SF2_Player SF2Target = SF2_Player(target);
+			if (!SF2Target.IsValid || SF2Target.IsEliminated || SF2Target.HasEscaped)
+			{
+				g_SlenderTeleportTarget[this.Index] = INVALID_ENT_REFERENCE;
+			}
+			else
+			{
+				g_SlenderTeleportTarget[this.Index] = EntIndexToEntRef(target);
+			}
+		}
+	}
+
 	property bool DeathCamEnabled
 	{
 		public get()
 		{
 			return NPCHasDeathCamEnabled(this.Index);
 		}
+
 		public set(bool state)
 		{
 			NPCSetDeathCamEnabled(this.Index, state);
@@ -205,9 +309,22 @@ methodmap SF2NPC_BaseNPC
 		SpawnSlender(this, pos);
 	}
 
-	public void UnSpawn()
+	public void UnSpawn(bool instant = false)
 	{
-		RemoveSlender(this.Index);
+		if (IsValidEntity(this.EntIndex))
+		{
+			SF2_ChaserEntity chaser = SF2_ChaserEntity(this.EntIndex);
+			if (chaser.IsValid() && !instant)
+			{
+				chaser.ShouldDespawn = true;
+			}
+			else
+			{
+				RemoveEntity(this.EntIndex);
+			}
+
+			this.TeleportTarget = INVALID_ENT_REFERENCE;
+		}
 	}
 
 	public void Remove()
@@ -219,7 +336,7 @@ methodmap SF2NPC_BaseNPC
 	{
 		public get()
 		{
-			SlenderCanRemove(this.Index);
+			return SlenderCanRemove(this.Index);
 		}
 	}
 
@@ -243,6 +360,11 @@ methodmap SF2NPC_BaseNPC
 		NPCSetProfile(this.Index, profileName);
 	}
 
+	public void GetName(char[] buffer, int bufferLen)
+	{
+		NPCGetBossName(this.Index, buffer, bufferLen);
+	}
+
 	public void RemoveFromGame()
 	{
 		RemoveProfile(this.Index);
@@ -253,11 +375,6 @@ methodmap SF2NPC_BaseNPC
 		NPCGetDistanceFromEntity(this.Index, entity);
 	}
 
-	public float GetSpeed(int difficulty)
-	{
-		return NPCGetSpeed(this.Index, difficulty);
-	}
-
 	public float GetAddSpeed()
 	{
 		return NPCGetAddSpeed(this.Index);
@@ -266,31 +383,6 @@ methodmap SF2NPC_BaseNPC
 	public void SetAddSpeed(float value)
 	{
 		NPCSetAddSpeed(this.Index, value);
-	}
-
-	public float GetMaxSpeed(int difficulty)
-	{
-		return NPCGetMaxSpeed(this.Index, difficulty);
-	}
-
-	public float GetAddMaxSpeed()
-	{
-		return NPCGetAddMaxSpeed(this.Index);
-	}
-
-	public void SetAddMaxSpeed(float value)
-	{
-		NPCSetAddMaxSpeed(this.Index, value);
-	}
-
-	public bool GetAbsOrigin(float buffer[3], const float defaultValue[3] = { 0.0, 0.0, 0.0 })
-	{
-		return SlenderGetAbsOrigin(this.Index, buffer, defaultValue);
-	}
-
-	public float GetAcceleration(int difficulty)
-	{
-		return NPCGetAcceleration(this.Index, difficulty);
 	}
 
 	public float GetAddAcceleration()
@@ -309,6 +401,7 @@ methodmap SF2NPC_BaseNPC
 		{
 			NPCGetAddAcceleration(this.Index);
 		}
+
 		public set(float amount)
 		{
 			NPCSetAddAcceleration(this.Index, amount);
@@ -356,7 +449,7 @@ methodmap SF2NPC_BaseNPC
 		return NPCGetAttributeValue(this.Index, attributeIndex);
 	}
 
-	public bool CanBeSeen(bool fov = true, bool blink = false)
+	public bool CanBeSeen(bool fov = true, bool blink = false, bool checkEliminated = true)
 	{
 		return PeopleCanSeeSlender(this.Index, fov, blink);
 	}
@@ -370,13 +463,49 @@ methodmap SF2NPC_BaseNPC
 	{
 		NPCAddCompanions(this);
 	}
+
+	public bool IsAffectedBySight()
+	{
+		return NPCGetAffectedBySightState(this.Index);
+	}
+
+	public void SetAffectedBySight(bool state)
+	{
+		NPCSetAffectedBySightState(this.Index, state);
+	}
+
+	property int DefaultTeam
+	{
+		public get()
+		{
+			return NPCGetDefaultTeam(this.Index);
+		}
+
+		public set(int value)
+		{
+			NPCSetDefaultTeam(this.Index, value);
+		}
+	}
+
+	property bool WasKilled
+	{
+		public get()
+		{
+			return NPCGetWasKilled(this.Index);
+		}
+
+		public set(bool state)
+		{
+			NPCSetWasKilled(this.Index, state);
+		}
+	}
 }
 
 methodmap SF2_BasePlayer < CBaseCombatCharacter
 {
 	public SF2_BasePlayer(int client)
 	{
-		if (!IsValidClient(client))
+		if (client <= 0)
 		{
 			return view_as<SF2_BasePlayer>(SF2_INVALID_PLAYER);
 		}
@@ -411,7 +540,7 @@ methodmap SF2_BasePlayer < CBaseCombatCharacter
 	{
 		public get()
 		{
-			return IsClientInGame(this.index);
+			return IsClientInGameEx(this.index);
 		}
 	}
 
@@ -443,7 +572,7 @@ methodmap SF2_BasePlayer < CBaseCombatCharacter
 	{
 		public get()
 		{
-			return !!GetEntProp(this.index, Prop_Send, "m_nForceTauntCam");
+			return GetEntProp(this.index, Prop_Send, "m_nForceTauntCam") != 0;
 		}
 	}
 
@@ -453,6 +582,14 @@ methodmap SF2_BasePlayer < CBaseCombatCharacter
 		{
 			return GetClientButtons(this.index);
 		}
+	}
+
+	public bool IsMoving()
+	{
+		int buttons = this.Buttons;
+		return buttons & IN_FORWARD || buttons & IN_BACK || buttons & IN_RIGHT ||
+			buttons & IN_LEFT || buttons & IN_MOVERIGHT || buttons & IN_MOVELEFT ||
+			buttons & IN_JUMP;
 	}
 
 	property int Health
@@ -519,6 +656,7 @@ methodmap SF2_BasePlayer < CBaseCombatCharacter
 		{
 			return g_PlayerHasRegenerationItem[this.index];
 		}
+
 		public set(bool state)
 		{
 			g_PlayerHasRegenerationItem[this.index] = state;
@@ -542,6 +680,16 @@ methodmap SF2_BasePlayer < CBaseCombatCharacter
 		}
 	}
 
+	public bool IsCritBoosted()
+	{
+		return IsClientCritBoosted(this.index);
+	}
+
+	public bool IsMiniCritBoosted()
+	{
+		return TF2_IsMiniCritBuffed(this.index);
+	}
+
 	public void Ignite(bool self = false, int attacker = 0, float duration = 10.0)
 	{
 		TF2_IgnitePlayer(this.index, !self && attacker > 0 ? attacker : this.index, duration);
@@ -552,7 +700,7 @@ methodmap SF2_BasePlayer < CBaseCombatCharacter
 		TF2_MakeBleed(this.index, !self && attacker > 0 ? attacker : this.index, duration);
 	}
 
-	public void Stun(float duration, float slowdown, int stunflags, int attacker = 0)
+	public void Stun(float duration, float slowdown = 0.0, int stunflags, int attacker = 0)
 	{
 		TF2_StunPlayer(this.index, duration, slowdown, stunflags, attacker);
 	}
@@ -582,7 +730,7 @@ methodmap SF2_BasePlayer < CBaseCombatCharacter
 		GetEntDataVector(this.index, offset, buffer);
 	}
 
-	public void SetDataVector(int offset, const float buffer[3], bool state=false)
+	public void SetDataVector(int offset, const float buffer[3], bool state = false)
 	{
 		SetEntDataVector(this.index, offset, buffer, state);
 	}
@@ -597,19 +745,19 @@ methodmap SF2_BasePlayer < CBaseCombatCharacter
 		return GetPlayerWeaponSlot(this.index, slot);
 	}
 
+	public void SwitchToWeaponSlot(int slot)
+	{
+		ClientSwitchToWeaponSlot(this.index, slot);
+	}
+
+	public void RemoveWeaponSlot(int slot)
+	{
+		TF2_RemoveWeaponSlot(this.index, slot);
+	}
+
 	public void ScreenShake(float amp, float duration, float freq)
 	{
 		UTIL_ClientScreenShake(this.index, amp, duration, freq);
-	}
-
-	public int ShowHudText(Handle hudSync, const char[] buffer)
-	{
-		return ShowSyncHudText(this.index, hudSync, buffer);
-	}
-
-	public any SDK_Call(Handle handle)
-	{
-		return SDKCall(handle, this.index);
 	}
 
 	public void ViewPunch(const float punchVel[3])
@@ -634,12 +782,44 @@ methodmap SF2_BasePlayer < CBaseCombatCharacter
 		ClientUpdateListeningFlags(this.index, false);
 	}
 
+	property bool IsParticipating
+	{
+		public get()
+		{
+			return IsClientParticipating(this.index);
+		}
+	}
+
+	public bool GetName(char[] name, int length)
+	{
+		return GetClientName(this.index, name, length);
+	}
+
+	property int LastButtons
+	{
+		public get()
+		{
+			return g_PlayerLastButtons[this.index];
+		}
+
+		public set(int value)
+		{
+			g_PlayerLastButtons[this.index] = value;
+		}
+	}
+
+	public void ScreenFade(int duration, int time, int flags, int r, int g, int b, int a)
+	{
+		UTIL_ScreenFade(this.index, duration, time, flags, r, g, b, a);
+	}
+
 	property bool IsEliminated
 	{
 		public get()
 		{
 			return g_PlayerEliminated[this.index];
 		}
+
 		public set(bool state)
 		{
 			g_PlayerEliminated[this.index] = state;
@@ -665,6 +845,7 @@ methodmap SF2_BasePlayer < CBaseCombatCharacter
 		{
 			return g_PlayerProxy[this.index];
 		}
+
 		public set(bool state)
 		{
 			g_PlayerProxy[this.index] = state;
@@ -677,6 +858,7 @@ methodmap SF2_BasePlayer < CBaseCombatCharacter
 		{
 			return g_PlayerProxyControl[this.index];
 		}
+
 		public set(int value)
 		{
 			if (value < 0)
@@ -697,6 +879,7 @@ methodmap SF2_BasePlayer < CBaseCombatCharacter
 		{
 			return g_PlayerProxyMaster[this.index];
 		}
+
 		public set(int value)
 		{
 			g_PlayerProxyMaster[this.index] = value;
@@ -711,6 +894,14 @@ methodmap SF2_BasePlayer < CBaseCombatCharacter
 		}
 	}
 
+	property bool IsInPvE
+	{
+		public get()
+		{
+			return IsClientInPvE(this.index);
+		}
+	}
+
 	property bool IsInDeathCam
 	{
 		public get()
@@ -719,9 +910,46 @@ methodmap SF2_BasePlayer < CBaseCombatCharacter
 		}
 	}
 
-	public void StartDeathCam(int bossIndex, const float vecLookPos[3], bool antiCamp = false)
+	property bool StatsHUD
 	{
-		ClientStartDeathCam(this.index, bossIndex, vecLookPos, antiCamp);
+		public get()
+		{
+			return g_PlayerStatsHUD[this.index];
+		}
+		public set(bool value)
+		{
+			g_PlayerStatsHUD[this.index] = value;
+		}
+	}
+
+	property bool TimerHUD
+	{
+		public get()
+		{
+			return g_PlayerTimerHUD[this.index];
+		}
+		public set(bool value)
+		{
+			g_PlayerTimerHUD[this.index] = value;
+		}
+	}
+
+	property bool CanCollideWithBosses
+	{
+		public get()
+		{
+			return g_PlayerCanCollideWithBosses[this.index];
+		}
+
+		public set(bool state)
+		{
+			g_PlayerCanCollideWithBosses[this.index] = state;
+		}
+	}
+
+	public void StartDeathCam(int bossIndex, const float lookPos[3], bool antiCamp = false)
+	{
+		ClientStartDeathCam(this.index, bossIndex, lookPos, antiCamp);
 	}
 
 	property bool HasEscaped
@@ -761,6 +989,7 @@ methodmap SF2_BasePlayer < CBaseCombatCharacter
 		{
 			return ClientGetFlashlightBatteryLife(this.index);
 		}
+
 		public set(float value)
 		{
 			ClientSetFlashlightBatteryLife(this.index, value);
@@ -770,6 +999,11 @@ methodmap SF2_BasePlayer < CBaseCombatCharacter
 	public void ResetFlashlight()
 	{
 		ClientResetFlashlight(this.index);
+	}
+
+	public float GetFlashlightNextInputTime()
+	{
+		return ClientGetFlashlightNextInputTime(this.index);
 	}
 
 	property bool IsSprinting
@@ -788,6 +1022,83 @@ methodmap SF2_BasePlayer < CBaseCombatCharacter
 		}
 	}
 
+	public void HandleSprint(bool sprint)
+	{
+		ClientHandleSprint(this.index, sprint);
+	}
+
+	property float Stamina
+	{
+		public get()
+		{
+			return ClientGetStamina(this.index);
+		}
+
+		public set(float value)
+		{
+			ClientSetStamina(this.index, value);
+		}
+	}
+
+	public void SetStaminaRechargeTime(float time, bool checkTime = true)
+	{
+		SetPlayerStaminaRechargeTime(this, time, checkTime);
+	}
+
+	property float PluginSprintSpeed
+	{
+		public get()
+		{
+			return g_PlayerPluginSprintSpeed[this.index];
+		}
+
+		public set(float value)
+		{
+			ClientSetPluginSprintSpeed(this.index, value);
+		}
+	}
+
+	public float AddPluginSprintSpeed(float value)
+	{
+		return ClientAddPluginSprintSpeed(this.index, value);
+	}
+
+	public float SubtractPluginSprintSpeed(float value)
+	{
+		return ClientSubtractPluginSprintSpeed(this.index, value);
+	}
+
+	property float PluginWalkSpeed
+	{
+		public get()
+		{
+			return g_PlayerPluginWalkSpeed[this.index];
+		}
+
+		public set(float value)
+		{
+			ClientSetPluginWalkSpeed(this.index, value);
+		}
+	}
+
+	public float AddPluginWalkSpeed(float value)
+	{
+		return ClientAddPluginWalkSpeed(this.index, value);
+	}
+
+	public float SubtractPluginWalkSpeed(float value)
+	{
+		return ClientSubtractPluginWalkSpeed(this.index, value);
+	}
+
+	property bool HasStartedBlinking
+	{
+		public get()
+		{
+			return ClientHasStartedBlinking(this.index);
+		}
+	}
+
 	property bool IsBlinking
 	{
 		public get()
@@ -796,12 +1107,23 @@ methodmap SF2_BasePlayer < CBaseCombatCharacter
 		}
 	}
 
+	public bool IsHoldingBlink()
+	{
+		return IsClientHoldingBlink(this.index);
+	}
+
+	public void SetHoldingBlink(bool value)
+	{
+		ClientSetHoldingBlink(this.index, value);
+	}
+
 	property float BlinkMeter
 	{
 		public get()
 		{
 			return ClientGetBlinkMeter(this.index);
 		}
+
 		public set(float amount)
 		{
 			ClientSetBlinkMeter(this.index, amount);
@@ -816,14 +1138,19 @@ methodmap SF2_BasePlayer < CBaseCombatCharacter
 		}
 	}
 
-	public void ResetBlink()
+	public void Blink()
 	{
-		ClientResetBlink(this.index);
+		ClientBlink(this.index);
 	}
 
 	public bool StartPeeking()
 	{
 		return ClientStartPeeking(this.index);
+	}
+
+	public void EndPeeking()
+	{
+		ClientEndPeeking(this.index);
 	}
 
 	property int PageCount
@@ -832,15 +1159,16 @@ methodmap SF2_BasePlayer < CBaseCombatCharacter
 		{
 			return g_PlayerPageCount[this.index];
 		}
+
 		public set(int amount)
 		{
 			g_PlayerPageCount[this.index] = amount;
 		}
 	}
 
-	public void ResetHints()
+	public bool HasHint(int hint)
 	{
-		ClientResetHints(this.index);
+		return ClientHasHint(this.index, hint);
 	}
 
 	public void ShowHint(int hint)
@@ -854,6 +1182,7 @@ methodmap SF2_BasePlayer < CBaseCombatCharacter
 		{
 			return g_PlayerTrapped[this.index];
 		}
+
 		public set(bool state)
 		{
 			g_PlayerTrapped[this.index] = state;
@@ -866,23 +1195,55 @@ methodmap SF2_BasePlayer < CBaseCombatCharacter
 		{
 			return g_PlayerTrapCount[this.index];
 		}
+
 		public set(int amount)
 		{
 			g_PlayerTrapCount[this.index] = amount;
 		}
 	}
 
-	public void UpdateMusicSystem(bool initialize = false)
-	{
-		ClientUpdateMusicSystem(this.index, initialize);
-	}
-
-	property bool HasConstantGlow
+	property bool IsLatched
 	{
 		public get()
 		{
-			return DoesClientHaveConstantGlow(this.index);
+			return g_PlayerLatchedByTongue[this.index];
 		}
+
+		public set(bool state)
+		{
+			g_PlayerLatchedByTongue[this.index] = state;
+		}
+	}
+
+	property int LatchCount
+	{
+		public get()
+		{
+			return g_PlayerLatchCount[this.index];
+		}
+
+		public set(int amount)
+		{
+			g_PlayerLatchCount[this.index] = amount;
+		}
+	}
+
+	property int Latcher
+	{
+		public get()
+		{
+			return g_PlayerLatcher[this.index];
+		}
+
+		public set(int value)
+		{
+			g_PlayerLatcher[this.index] = value;
+		}
+	}
+
+	public void UpdateMusicSystem(bool initialize = false)
+	{
+		ClientUpdateMusicSystem(this.index, initialize);
 	}
 
 	public void SetPlayState(bool state, bool enablePlay = true)
@@ -894,377 +1255,94 @@ methodmap SF2_BasePlayer < CBaseCombatCharacter
 	{
 		return PlayerCanSeeSlender(this.index, bossIndex, checkFOV, checkBlink, checkEliminated);
 	}
+
+	public void SetAFKTime(bool reset = true)
+	{
+		AFK_SetTime(this.index);
+	}
+
+	public void SetAFKState()
+	{
+		AFK_SetAFK(this.index);
+	}
+
+	public void CheckAFKTime()
+	{
+		AFK_CheckTime(this.index);
+	}
+
+	public bool ShouldBeForceChased(SF2NPC_BaseNPC controller)
+	{
+		return ShouldClientBeForceChased(controller, this);
+	}
+
+	public void SetForceChaseState(SF2NPC_BaseNPC controller, bool value)
+	{
+		SetClientForceChaseState(controller, this, value);
+	}
+
+	public bool IsLookingAtBoss(SF2NPC_BaseNPC controller)
+	{
+		return g_PlayerSeesSlender[this.index][controller.Index];
+	}
+
+	public void GetForcedOverlay(char[] material, int maxlength)
+	{
+		strcopy(material, maxlength, g_PlayerForcedOverlay[this.index]);
+	}
+
+	public void SetForcedOverlay(char[] material)
+	{
+		strcopy(g_PlayerForcedOverlay[this.index], PLATFORM_MAX_PATH, material);
+	}
+
+	property bool StaticDisabled
+	{
+		public get()
+		{
+			return g_PlayerStaticForceDisabled[this.index];
+		}
+
+		public set(bool value)
+		{
+			g_PlayerStaticForceDisabled[this.index] = value;
+		}
+	}
+
+	property bool AntiCamping
+	{
+		public get()
+		{
+			return g_PlayerAntiCamping[this.index];
+		}
+
+		public set(bool value)
+		{
+			g_PlayerAntiCamping[this.index] = value;
+		}
+	}
 }
 
 methodmap SF2NPC_Chaser < SF2NPC_BaseNPC
 {
-	property float WakeRadius
+	public SF2ChaserBossProfileData GetProfileData()
 	{
-		public get()
-		{
-			return NPCChaserGetWakeRadius(this.Index);
-		}
+		return NPCChaserGetProfileData(this.Index);
 	}
 
-	property bool StunEnabled
+	public float GetInitialDeathHealth(int difficulty)
 	{
-		public get()
-		{
-			return NPCChaserIsStunEnabled(this.Index);
-		}
+		return NPCChaserGetDeathInitialHealth(this.Index, difficulty);
 	}
 
-	property bool StunByFlashlightEnabled
+	public float GetDeathHealth(int difficulty)
 	{
-		public get()
-		{
-			return NPCChaserIsStunByFlashlightEnabled(this.Index);
-		}
+		return NPCChaserGetDeathHealth(this.Index, difficulty);
 	}
 
-	property float StunFlashlightDamage
+	public void SetDeathHealth(int difficulty, float amount)
 	{
-		public get()
-		{
-			return NPCChaserGetStunFlashlightDamage(this.Index);
-		}
-	}
-
-	property float StunCooldown
-	{
-		public get()
-		{
-			return NPCChaserGetStunCooldown(this.Index);
-		}
-	}
-
-	property float StunHealth
-	{
-		public get()
-		{
-			return NPCChaserGetStunHealth(this.Index);
-		}
-		public set(float amount)
-		{
-			NPCChaserSetStunHealth(this.Index, amount);
-		}
-	}
-
-	property float InitialStunHealth
-	{
-		public get()
-		{
-			return NPCChaserGetStunInitialHealth(this.Index);
-		}
-		public set(float amount)
-		{
-			NPCChaserSetStunInitialHealth(this.Index, amount);
-		}
-	}
-
-	public void TriggerStun(int entity, char profile[SF2_MAX_PROFILE_NAME_LENGTH], float pos[3])
-	{
-		NPCBossTriggerStun(this.Index, entity, profile, pos);
-	}
-
-	property bool HasDamageParticles
-	{
-		public get()
-		{
-			return NPCChaserDamageParticlesEnabled(this.Index);
-		}
-	}
-
-	property bool UseShootGesture
-	{
-		public get()
-		{
-			return NPCChaserUseShootGesture(this.Index);
-		}
-	}
-
-	property bool CloakEnabled
-	{
-		public get()
-		{
-			return NPCChaserIsCloakEnabled(this.Index);
-		}
-	}
-
-	public float GetCloakCooldown(int difficulty)
-	{
-		return NPCChaserGetCloakCooldown(this.Index, difficulty);
-	}
-
-	public float GetCloakRange(int difficulty)
-	{
-		return NPCChaserGetCloakRange(this.Index, difficulty);
-	}
-
-	public float GetDecloakRange(int difficulty)
-	{
-		return NPCChaserGetDecloakRange(this.Index, difficulty);
-	}
-
-	public float GetCloakSpeedMultiplier(int difficulty)
-	{
-		return NPCChaserGetCloakSpeedMultiplier(this.Index, difficulty);
-	}
-
-	public float GetCrawlSpeedMultiplier(int difficulty)
-	{
-		return NPCChaserGetCrawlSpeedMultiplier(this.Index, difficulty);
-	}
-
-	property bool HasKeyDrop
-	{
-		public get()
-		{
-			return NPCChaseHasKeyDrop(this.Index);
-		}
-	}
-
-	property bool ProjectileEnabled
-	{
-		public get()
-		{
-			return NPCChaserIsProjectileEnabled(this.Index);
-		}
-	}
-
-	property bool ProjectileUsesAmmo
-	{
-		public get()
-		{
-			return NPCChaserUseProjectileAmmo(this.Index);
-		}
-	}
-
-	property int ProjectileType
-	{
-		public get()
-		{
-			return NPCChaserGetProjectileType(this.Index);
-		}
-	}
-
-	public float GetProjectileCooldownMin(int difficulty)
-	{
-		return NPCChaserGetProjectileCooldownMin(this.Index, difficulty);
-	}
-
-	public float GetProjectileCooldownMax(int difficulty)
-	{
-		return NPCChaserGetProjectileCooldownMax(this.Index, difficulty);
-	}
-
-	public float GetProjectileSpeed(int difficulty)
-	{
-		return NPCChaserGetProjectileSpeed(this.Index, difficulty);
-	}
-
-	public float GetProjectileDamage(int difficulty)
-	{
-		return NPCChaserGetProjectileDamage(this.Index, difficulty);
-	}
-
-	public float GetProjectileRadius(int difficulty)
-	{
-		return NPCChaserGetProjectileRadius(this.Index, difficulty);
-	}
-
-	public float GetProjectileReloadTime(int difficulty)
-	{
-		return NPCChaserGetProjectileReloadTime(this.Index, difficulty);
-	}
-
-	property bool AdvancedDamageEffectsEnabled
-	{
-		public get()
-		{
-			return NPCChaserUseAdvancedDamageEffects(this.Index);
-		}
-	}
-
-	property bool AttachDamageEffectsParticle
-	{
-		public get()
-		{
-			return NPCChaserAttachDamageParticle(this.Index);
-		}
-	}
-
-	property bool JaratePlayerOnHit
-	{
-		public get()
-		{
-			return NPCChaserJaratePlayerOnHit(this.Index);
-		}
-	}
-
-	public float GetJarateDuration(int difficulty)
-	{
-		return NPCChaserGetJarateDuration(this.Index, difficulty);
-	}
-
-	property bool MilkPlayerOnHit
-	{
-		public get()
-		{
-			return NPCChaserMilkPlayerOnHit(this.Index);
-		}
-	}
-
-	public float GetMilkDuration(int difficulty)
-	{
-		return NPCChaserGetMilkDuration(this.Index, difficulty);
-	}
-
-	property bool GasPlayerOnHit
-	{
-		public get()
-		{
-			return NPCChaserGasPlayerOnHit(this.Index);
-		}
-	}
-
-	public float GetGasDuration(int difficulty)
-	{
-		return NPCChaserGetGasDuration(this.Index, difficulty);
-	}
-
-	property bool MarkPlayerOnHit
-	{
-		public get()
-		{
-			return NPCChaserMarkPlayerOnHit(this.Index);
-		}
-	}
-
-	public float GetMarkDuration(int difficulty)
-	{
-		return NPCChaserGetMarkDuration(this.Index, difficulty);
-	}
-
-	property bool IgnitePlayerOnHit
-	{
-		public get()
-		{
-			return NPCChaserIgnitePlayerOnHit(this.Index);
-		}
-	}
-
-	public float GetIgniteDelay(int difficulty)
-	{
-		return NPCChaserGetIgniteDelay(this.Index, difficulty);
-	}
-
-	property bool StunPlayerOnHit
-	{
-		public get()
-		{
-			return NPCChaserStunPlayerOnHit(this.Index);
-		}
-	}
-
-	public float GetStunAttackDuration(int difficulty)
-	{
-		return NPCChaserGetStunAttackDuration(this.Index, difficulty);
-	}
-
-	public float GetStunAttackSlowdown(int difficulty)
-	{
-		return NPCChaserGetStunAttackSlowdown(this.Index, difficulty);
-	}
-
-	property bool BleedPlayerOnHit
-	{
-		public get()
-		{
-			return NPCChaserBleedPlayerOnHit(this.Index);
-		}
-	}
-
-	public float GetBleedDuration(int difficulty)
-	{
-		return NPCChaserGetBleedDuration(this.Index, difficulty);
-	}
-
-	property bool ElectricPlayerOnHit
-	{
-		public get()
-		{
-			return NPCChaserElectricPlayerOnHit(this.Index);
-		}
-	}
-
-	public float GetElectricDuration(int difficulty)
-	{
-		return NPCChaserGetElectricDuration(this.Index, difficulty);
-	}
-
-	public float GetElectricSlowdown(int difficulty)
-	{
-		return NPCChaserGetElectricSlowdown(this.Index, difficulty);
-	}
-
-	property bool SmitePlayerOnHit
-	{
-		public get()
-		{
-			return NPCChaserSmitePlayerOnHit(this.Index);
-		}
-	}
-
-	property int State
-	{
-		public get()
-		{
-			return NPCChaserGetState(this.Index);
-		}
-		public set(int state)
-		{
-			NPCChaserSetState(this.Index, state);
-		}
-	}
-
-	property bool HasTraps
-	{
-		public get()
-		{
-			return NPCChaserGetTrapState(this.Index);
-		}
-	}
-
-	property int TrapType
-	{
-		public get()
-		{
-			return NPCChaserGetTrapType(this.Index);
-		}
-	}
-
-	public float GetTrapCooldown(int difficulty)
-	{
-		return NPCChaserGetTrapSpawnTime(this.Index, difficulty);
-	}
-
-	property bool HasCriticalRockets
-	{
-		public get()
-		{
-			return NPCChaserHasCriticalRockets(this.Index);
-		}
-	}
-
-	public float GetWalkSpeed(int difficulty)
-	{
-		return NPCChaserGetWalkSpeed(this.Index, difficulty);
-	}
-
-	public float GetMaxWalkSpeed(int difficulty)
-	{
-		return NPCChaserGetMaxWalkSpeed(this.Index, difficulty);
+		NPCChaserSetDeathHealth(this.Index, difficulty, amount);
 	}
 
 	property float StunHealthAdd
@@ -1273,60 +1351,20 @@ methodmap SF2NPC_Chaser < SF2NPC_BaseNPC
 		{
 			return NPCChaserGetAddStunHealth(this.Index);
 		}
+
 		public set(float value)
 		{
 			NPCChaserSetAddStunHealth(this.Index, value);
 		}
 	}
 
-	public void AddStunHealth(float amount)
-	{
-		NPCChaserAddStunHealth(this.Index, amount);
-	}
-
-	public bool CanDisappearOnStun()
-	{
-		return NPCChaserCanDisappearOnStun(this.Index);
-	}
-
-	property bool AutoChaseEnabled
+	property ArrayList ChaseOnLookTargets
 	{
 		public get()
 		{
-			return g_SlenderHasAutoChaseEnabled[this.Index];
-		}
-		public set(bool autoChase)
-		{
-			g_SlenderHasAutoChaseEnabled[this.Index] = autoChase;
+			return NPCChaserGetAutoChaseTargets(this.Index);
 		}
 	}
-
-	property bool ChasesEndlessly
-	{
-		public get()
-		{
-			return g_SlenderChasesEndlessly[this.Index];
-		}
-		public set(bool chaseEndlessly)
-		{
-			g_SlenderChasesEndlessly[this.Index] = chaseEndlessly;
-		}
-	}
-
-	public void SetGoalPos(float newPos[3])
-	{
-		CopyVector(newPos, g_SlenderGoalPos[this.Index]);
-	}
-
-	public void GetGoalPos(float dest[3])
-	{
-		CopyVector(g_SlenderGoalPos[this.Index], dest);
-	}
-
-    public void UpdateAnimation(int entity, int state)
-    {
-        NPCChaserUpdateBossAnimation(this.Index, entity, state);
-    }
 
 	public SF2NPC_Chaser(int index)
 	{
@@ -1340,4 +1378,1769 @@ methodmap SF2NPC_Statue < SF2NPC_BaseNPC
 	{
 		return view_as<SF2NPC_Statue>(SF2NPC_BaseNPC(index));
 	}
+
+	public SF2StatueBossProfileData GetProfileData()
+	{
+		return NPCStatueGetProfileData(this.Index);
+	}
+
+	public float GetIdleLifetime(int difficulty)
+	{
+		return NPCStatueGetIdleLifetime(this.Index, difficulty);
+	}
+}
+
+void SetupMethodmapAPI()
+{
+	CreateNative("SF2_Player.UserID.get", Native_GetClientUserID);
+	CreateNative("SF2_Player.IsValid.get", Native_GetIsValidClient);
+	CreateNative("SF2_Player.IsAlive.get", Native_GetIsClientAlive);
+	CreateNative("SF2_Player.IsInGame.get", Native_GetIsClientInGame);
+	CreateNative("SF2_Player.IsBot.get", Native_GetIsClientBot);
+	CreateNative("SF2_Player.IsSourceTV.get", Native_GetIsClientSourceTV);
+	CreateNative("SF2_Player.IsReplay.get", Native_GetIsClientReplay);
+	CreateNative("SF2_Player.InThirdPerson.get", Native_GetIsClientInThirdPerson);
+	CreateNative("SF2_Player.Buttons.get", Native_GetClientButtons);
+	CreateNative("SF2_Player.IsMoving", Native_GetIsClientMoving);
+	CreateNative("SF2_Player.Health.get", Native_GetClientHealth);
+	CreateNative("SF2_Player.Health.set", Native_SetClientHealth);
+	CreateNative("SF2_Player.MaxHealth.get", Native_GetClientMaxHealth);
+	CreateNative("SF2_Player.Ducking.get", Native_GetIsClientDucking);
+	CreateNative("SF2_Player.Ducked.get", Native_GetIsClientDucked);
+	CreateNative("SF2_Player.GetDataEnt", Native_GetClientDataEnt);
+	CreateNative("SF2_Player.Class.get", Native_GetClientClass);
+	CreateNative("SF2_Player.Team.get", Native_GetClientTeam);
+	CreateNative("SF2_Player.HasRegenItem.get", Native_GetClientHasRegenItem);
+	CreateNative("SF2_Player.HasRegenItem.set", Native_SetClientHasRegenItem);
+	CreateNative("SF2_Player.InCondition", Native_GetClientInCondition);
+	CreateNative("SF2_Player.ChangeCondition", Native_ClientChangeCondition);
+	CreateNative("SF2_Player.IsCritBoosted", Native_GetClientIsCritBoosted);
+	CreateNative("SF2_Player.IsMiniCritBoosted", Native_GetClientIsMiniCritBoosted);
+	CreateNative("SF2_Player.Ignite", Native_ClientIgnite);
+	CreateNative("SF2_Player.Bleed", Native_ClientBleed);
+	CreateNative("SF2_Player.Stun", Native_ClientStun);
+	CreateNative("SF2_Player.Regenerate", Native_ClientRegenerate);
+	CreateNative("SF2_Player.SetClass", Native_ClientSetClass);
+	CreateNative("SF2_Player.GetEyePosition", Native_GetClientEyePosition);
+	CreateNative("SF2_Player.GetEyeAngles", Native_GetClientEyeAngles);
+	CreateNative("SF2_Player.GetDataVector", Native_GetClientDataVector);
+	CreateNative("SF2_Player.SetDataVector", Native_SetClientDataVector);
+	CreateNative("SF2_Player.GetDistanceFromEntity", Native_GetClientDistanceFromEntity);
+	CreateNative("SF2_Player.GetWeaponSlot", Native_GetClientWeaponSlot);
+	CreateNative("SF2_Player.SwitchToWeaponSlot", Native_ClientSwitchToWeaponSlot);
+	CreateNative("SF2_Player.RemoveWeaponSlot", Native_ClientRemoveWeaponSlot);
+	CreateNative("SF2_Player.ScreenShake", Native_ClientScreenShake);
+	CreateNative("SF2_Player.ViewPunch", Native_ClientViewPunch);
+	CreateNative("SF2_Player.TakeDamage", Native_ClientTakeDamage);
+	CreateNative("SF2_Player.Respawn", Native_ClientRespawn);
+	CreateNative("SF2_Player.UpdateListeningFlags", Native_ClientUpdateListeningFlags);
+	CreateNative("SF2_Player.IsParticipating.get", Native_GetClientIsParticipating);
+	CreateNative("SF2_Player.GetName", Native_GetClientName);
+	CreateNative("SF2_Player.LastButtons.get", Native_GetClientLastButtons);
+	CreateNative("SF2_Player.LastButtons.set", Native_SetClientLastButtons);
+	CreateNative("SF2_Player.ScreenFade", Native_ClientScreenFade);
+	CreateNative("SF2_Player.IsEliminated.get", Native_GetClientIsEliminated);
+	CreateNative("SF2_Player.IsEliminated.set", Native_SetClientIsEliminated);
+	CreateNative("SF2_Player.IsInGhostMode.get", Native_GetClientIsInGhostMode);
+	CreateNative("SF2_Player.SetGhostState", Native_SetClientGhostState);
+	CreateNative("SF2_Player.IsProxy.get", Native_GetClientIsProxy);
+	CreateNative("SF2_Player.IsProxy.set", Native_SetClientIsProxy);
+	CreateNative("SF2_Player.ProxyControl.get", Native_GetClientProxyControl);
+	CreateNative("SF2_Player.ProxyControl.set", Native_SetClientProxyControl);
+	CreateNative("SF2_Player.ProxyMaster.get", Native_GetClientProxyMaster);
+	CreateNative("SF2_Player.ProxyMaster.set", Native_SetClientProxyMaster);
+	CreateNative("SF2_Player.IsInPvP.get", Native_GetClientIsInPvP);
+	CreateNative("SF2_Player.IsInPvE.get", Native_GetClientIsInPvE);
+	CreateNative("SF2_Player.IsInDeathCam.get", Native_GetClientIsInDeathCam);
+	CreateNative("SF2_Player.StatsHUD.get", Native_GetClientStatsHUD);
+	CreateNative("SF2_Player.StatsHUD.set", Native_SetClientStatsHUD);
+	CreateNative("SF2_Player.TimerHUD.get", Native_GetClientTimerHUD);
+	CreateNative("SF2_Player.TimerHUD.set", Native_SetClientTimerHUD);
+	CreateNative("SF2_Player.CanCollideWithBosses.get", Native_GetClientCollideWithBosses);
+	CreateNative("SF2_Player.CanCollideWithBosses.set", Native_SetClientCollideWithBosses);
+	CreateNative("SF2_Player.StartDeathCam", Native_ClientStartDeathCam);
+	CreateNative("SF2_Player.HasEscaped.get", Native_GetClientHasEscaped);
+	CreateNative("SF2_Player.Escape", Native_ClientEscape);
+	CreateNative("SF2_Player.TeleportToEscapePoint", Native_ClientTeleportToEscapePoint);
+	CreateNative("SF2_Player.ForceEscape", Native_ClientForceEscape);
+	CreateNative("SF2_Player.UsingFlashlight.get", Native_GetClientUsingFlashlight);
+	CreateNative("SF2_Player.HandleFlashlight", Native_ClientHandleFlashlight);
+	CreateNative("SF2_Player.FlashlightBatteryLife.get", Native_GetClientFlashlightBatteryLife);
+	CreateNative("SF2_Player.FlashlightBatteryLife.set", Native_SetClientFlashlightBatteryLife);
+	CreateNative("SF2_Player.ResetFlashlight", Native_ClientResetFlashlight);
+	CreateNative("SF2_Player.GetFlashlightNextInputTime", Native_GetClientFlashlightNextInputTime);
+	CreateNative("SF2_Player.IsSprinting.get", Native_GetClientIsSprinting);
+	CreateNative("SF2_Player.IsReallySprinting.get", Native_GetClientIsReallySprinting);
+	CreateNative("SF2_Player.HandleSprint", Native_ClientHandleSprint);
+	CreateNative("SF2_Player.Stamina.get", Native_GetClientSprintPoints);
+	CreateNative("SF2_Player.Stamina.set", Native_SetClientSprintPoints);
+	CreateNative("SF2_Player.SetStaminaRechargeTime", Native_SetClientStaminaRechargeTime);
+	CreateNative("SF2_Player.PluginSprintSpeed.get", Native_GetClientPluginSprintSpeed);
+	CreateNative("SF2_Player.PluginSprintSpeed.set", Native_SetClientPluginSprintSpeed);
+	CreateNative("SF2_Player.AddPluginSprintSpeed", Native_AddClientPluginSprintSpeed);
+	CreateNative("SF2_Player.SubtractPluginSprintSpeed", Native_SubtractClientPluginSprintSpeed);
+	CreateNative("SF2_Player.PluginWalkSpeed.get", Native_GetClientPluginWalkSpeed);
+	CreateNative("SF2_Player.PluginWalkSpeed.set", Native_SetClientPluginWalkSpeed);
+	CreateNative("SF2_Player.AddPluginWalkSpeed", Native_AddClientPluginWalkSpeed);
+	CreateNative("SF2_Player.SubtractPluginWalkSpeed", Native_SubtractClientPluginWalkSpeed);
+	CreateNative("SF2_Player.HasStartedBlinking.get", Native_GetClientHasStartedBlinking);
+	CreateNative("SF2_Player.IsBlinking.get", Native_GetClientIsBlinking);
+	CreateNative("SF2_Player.IsHoldingBlink", Native_GetClientIsHoldingBlink);
+	CreateNative("SF2_Player.SetHoldingBlink", Native_SetClientIsHoldingBlink);
+	CreateNative("SF2_Player.BlinkMeter.get", Native_GetClientBlinkMeter);
+	CreateNative("SF2_Player.BlinkMeter.set", Native_SetClientBlinkMeter);
+	CreateNative("SF2_Player.BlinkCount.get", Native_GetClientBlinkCount);
+	CreateNative("SF2_Player.Blink", Native_ClientBlink);
+	CreateNative("SF2_Player.StartPeeking", Native_ClientStartPeeking);
+	CreateNative("SF2_Player.EndPeeking", Native_ClientEndPeeking);
+	CreateNative("SF2_Player.PageCount.get", Native_GetClientPageCount);
+	CreateNative("SF2_Player.PageCount.set", Native_SetClientPageCount);
+	CreateNative("SF2_Player.ShowHint", Native_ClientShowHint);
+	CreateNative("SF2_Player.IsTrapped.get", Native_GetClientIsTrapped);
+	CreateNative("SF2_Player.IsTrapped.set", Native_SetClientIsTrapped);
+	CreateNative("SF2_Player.TrapCount.get", Native_GetClientTrapCount);
+	CreateNative("SF2_Player.TrapCount.set", Native_SetClientTrapCount);
+	CreateNative("SF2_Player.IsLatched.get", Native_GetClientIsLatched);
+	CreateNative("SF2_Player.IsLatched.set", Native_SetClientIsLatched);
+	CreateNative("SF2_Player.LatchCount.get", Native_GetClientLatchCount);
+	CreateNative("SF2_Player.LatchCount.set", Native_SetClientLatchCount);
+	CreateNative("SF2_Player.Latcher.get", Native_GetClientLatcher);
+	CreateNative("SF2_Player.Latcher.set", Native_SetClientLatcher);
+	CreateNative("SF2_Player.UpdateMusicSystem", Native_ClientUpdateMusicSystem);
+	CreateNative("SF2_Player.HasConstantGlow.get", Native_GetClientHasConstantGlow);
+	CreateNative("SF2_Player.SetPlayState", Native_SetClientPlayState);
+	CreateNative("SF2_Player.CanSeeSlender", Native_GetClientCanSeeSlender);
+	CreateNative("SF2_Player.SetAFKTime", Native_SetClientAFKTime);
+	CreateNative("SF2_Player.SetAFKState", Native_SetClientAFKState);
+	CreateNative("SF2_Player.CheckAFKTime", Native_CheckClientAFKTime);
+	CreateNative("SF2_Player.ShouldBeForceChased", Native_GetClientShouldBeForceChased);
+	CreateNative("SF2_Player.SetForceChaseState", Native_SetClientForceChaseState);
+	CreateNative("SF2_Player.IsLookingAtBoss", Native_GetClientIsLookingAtBoss);
+	CreateNative("SF2_Player.GetForcedOverlay", Native_GetClientForcedOverlay);
+	CreateNative("SF2_Player.SetForcedOverlay", Native_SetClientForcedOverlay);
+	CreateNative("SF2_Player.StaticDisabled.get", Native_GetClientForceDisableStatic);
+	CreateNative("SF2_Player.StaticDisabled.set", Native_SetClientForceDisableStatic);
+	CreateNative("SF2_Player.AntiCamping.get", Native_GetClientAntiCamping);
+	CreateNative("SF2_Player.AntiCamping.set", Native_SetClientAntiCamping);
+}
+
+static any Native_GetClientUserID(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.UserID;
+}
+
+static any Native_GetIsValidClient(Handle plugin, int numParams)
+{
+	// WOW, the one instance where I don't check if the client is valid but we return it
+	SF2_BasePlayer player = SF2_BasePlayer(GetNativeCell(1));
+	return player.IsValid;
+}
+
+static any Native_GetIsClientAlive(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.IsAlive;
+}
+
+static any Native_GetIsClientInGame(Handle plugin, int numParams)
+{
+	SF2_BasePlayer player = SF2_BasePlayer(GetNativeCell(1));
+	return player.IsInGame;
+}
+
+static any Native_GetIsClientBot(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.IsBot;
+}
+
+static any Native_GetIsClientSourceTV(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.IsSourceTV;
+}
+
+static any Native_GetIsClientReplay(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.IsReplay;
+}
+
+static any Native_GetIsClientInThirdPerson(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.InThirdPerson;
+}
+
+static any Native_GetClientButtons(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.Buttons;
+}
+
+static any Native_GetIsClientMoving(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.IsMoving();
+}
+
+static any Native_GetClientHealth(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.Health;
+}
+
+static any Native_SetClientHealth(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.Health = GetNativeCell(2);
+	return 0;
+}
+
+static any Native_GetClientMaxHealth(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.MaxHealth;
+}
+
+static any Native_GetIsClientDucking(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.Ducking;
+}
+
+static any Native_GetIsClientDucked(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.Ducked;
+}
+
+static any Native_GetClientDataEnt(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.GetDataEnt(GetNativeCell(2));
+}
+
+static any Native_GetClientClass(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.Class;
+}
+
+static any Native_GetClientTeam(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.Team;
+}
+
+static any Native_GetClientHasRegenItem(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.HasRegenItem;
+}
+
+static any Native_SetClientHasRegenItem(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.HasRegenItem = GetNativeCell(2);
+	return 0;
+}
+
+static any Native_GetClientInCondition(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.InCondition(GetNativeCell(2));
+}
+
+static any Native_ClientChangeCondition(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.ChangeCondition(GetNativeCell(2), GetNativeCell(3), GetNativeCell(4), GetNativeCell(5));
+	return 0;
+}
+
+static any Native_GetClientIsCritBoosted(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.IsCritBoosted();
+}
+
+static any Native_GetClientIsMiniCritBoosted(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.IsMiniCritBoosted();
+}
+
+static any Native_ClientIgnite(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.Ignite(GetNativeCell(2), GetNativeCell(3), GetNativeCell(4));
+	return 0;
+}
+
+static any Native_ClientBleed(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.Bleed(GetNativeCell(2), GetNativeCell(3), GetNativeCell(4));
+	return 0;
+}
+
+static any Native_ClientStun(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.Stun(GetNativeCell(2), GetNativeCell(3), GetNativeCell(4), GetNativeCell(5));
+	return 0;
+}
+
+static any Native_ClientRegenerate(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.Regenerate();
+	return 0;
+}
+
+static any Native_ClientSetClass(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.SetClass(GetNativeCell(2), GetNativeCell(3), GetNativeCell(4));
+	return 0;
+}
+
+static any Native_GetClientEyePosition(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	float buffer[3];
+	player.GetEyePosition(buffer);
+	SetNativeArray(2, buffer, 3);
+	return 0;
+}
+
+static any Native_GetClientEyeAngles(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	float buffer[3];
+	player.GetEyeAngles(buffer);
+	SetNativeArray(2, buffer, 3);
+	return 0;
+}
+
+static any Native_GetClientDataVector(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	float buffer[3];
+	player.GetDataVector(GetNativeCell(2), buffer);
+	SetNativeArray(3, buffer, 3);
+	return 0;
+}
+
+static any Native_SetClientDataVector(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	float buffer[3];
+	GetNativeArray(3, buffer, 3);
+	player.SetDataVector(GetNativeCell(2), buffer);
+	return 0;
+}
+
+static any Native_GetClientDistanceFromEntity(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.GetDistanceFromEntity(GetNativeCell(2));
+}
+
+static any Native_GetClientWeaponSlot(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.GetWeaponSlot(GetNativeCell(2));
+}
+
+static any Native_ClientSwitchToWeaponSlot(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.SwitchToWeaponSlot(GetNativeCell(2));
+	return 0;
+}
+
+static any Native_ClientRemoveWeaponSlot(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.RemoveWeaponSlot(GetNativeCell(2));
+	return 0;
+}
+
+static any Native_ClientScreenShake(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.ScreenShake(GetNativeCell(2), GetNativeCell(3), GetNativeCell(4));
+	return 0;
+}
+
+static any Native_ClientViewPunch(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	float buffer[3];
+	GetNativeArray(2, buffer, 3);
+	player.ViewPunch(buffer);
+	return 0;
+}
+
+static any Native_ClientTakeDamage(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	float force[3], position[3];
+	GetNativeArray(8, force, 3);
+	GetNativeArray(9, position, 3);
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.TakeDamage(GetNativeCell(2), GetNativeCell(3), GetNativeCell(4), GetNativeCell(5), GetNativeCell(6),
+					GetNativeCell(7), force, position, GetNativeCell(10));
+	return 0;
+}
+
+static any Native_ClientRespawn(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.Respawn();
+	return 0;
+}
+
+static any Native_ClientUpdateListeningFlags(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.UpdateListeningFlags(GetNativeCell(2));
+	return 0;
+}
+
+static any Native_GetClientIsParticipating(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.IsParticipating;
+}
+
+static any Native_GetClientName(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	int size;
+	GetNativeStringLength(2, size);
+	size++;
+	char[] buffer = new char[size];
+	GetNativeString(2, buffer, size);
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.GetName(buffer, size);
+	SetNativeString(2, buffer, size);
+	return player.IsParticipating;
+}
+
+static any Native_GetClientLastButtons(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.LastButtons;
+}
+
+static any Native_SetClientLastButtons(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.LastButtons = GetNativeCell(2);
+	return 0;
+}
+
+static any Native_ClientScreenFade(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.ScreenFade(GetNativeCell(2), GetNativeCell(3), GetNativeCell(4), GetNativeCell(5), GetNativeCell(6), GetNativeCell(7), GetNativeCell(8));
+	return 0;
+}
+
+static any Native_GetClientIsEliminated(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.IsEliminated;
+}
+
+static any Native_SetClientIsEliminated(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.IsEliminated = GetNativeCell(2);
+	return 0;
+}
+
+static any Native_GetClientIsInGhostMode(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.IsInGhostMode;
+}
+
+static any Native_SetClientGhostState(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.SetGhostState(GetNativeCell(2));
+	return 0;
+}
+
+static any Native_GetClientIsProxy(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.IsProxy;
+}
+
+static any Native_SetClientIsProxy(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.IsProxy = GetNativeCell(2);
+	return 0;
+}
+
+static any Native_GetClientProxyControl(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.ProxyControl;
+}
+
+static any Native_SetClientProxyControl(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.ProxyControl = GetNativeCell(2);
+	return 0;
+}
+
+static any Native_GetClientProxyMaster(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.ProxyMaster;
+}
+
+static any Native_SetClientProxyMaster(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.ProxyMaster = GetNativeCell(2);
+	return 0;
+}
+
+static any Native_GetClientIsInPvP(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.IsInPvP;
+}
+
+static any Native_GetClientIsInPvE(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.IsInPvE;
+}
+
+static any Native_GetClientIsInDeathCam(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.IsInDeathCam;
+}
+
+static any Native_GetClientStatsHUD(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.StatsHUD;
+}
+
+static any Native_SetClientStatsHUD(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.StatsHUD = GetNativeCell(2);
+	return 0;
+}
+
+static any Native_GetClientTimerHUD(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.TimerHUD;
+}
+
+static any Native_SetClientTimerHUD(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.TimerHUD = GetNativeCell(2);
+	return 0;
+}
+
+static any Native_GetClientCollideWithBosses(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.CanCollideWithBosses;
+}
+
+static any Native_SetClientCollideWithBosses(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.CanCollideWithBosses = GetNativeCell(2);
+	return 0;
+}
+
+static any Native_ClientStartDeathCam(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	float buffer[3];
+	GetNativeArray(3, buffer, 3);
+	player.StartDeathCam(GetNativeCell(2), buffer, GetNativeCell(4));
+	return 0;
+}
+
+static any Native_GetClientHasEscaped(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.HasEscaped;
+}
+
+static any Native_ClientEscape(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.Escape();
+	return 0;
+}
+
+static any Native_ClientTeleportToEscapePoint(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.TeleportToEscapePoint();
+	return 0;
+}
+
+static any Native_ClientForceEscape(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.Escape();
+	player.TeleportToEscapePoint();
+	return 0;
+}
+
+static any Native_GetClientUsingFlashlight(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.UsingFlashlight;
+}
+
+static any Native_ClientHandleFlashlight(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.HandleFlashlight();
+	return 0;
+}
+
+static any Native_GetClientFlashlightBatteryLife(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.FlashlightBatteryLife;
+}
+
+static any Native_SetClientFlashlightBatteryLife(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.FlashlightBatteryLife = GetNativeCell(2);
+	return 0;
+}
+
+static any Native_ClientResetFlashlight(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.ResetFlashlight();
+	return 0;
+}
+
+static any Native_GetClientFlashlightNextInputTime(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.GetFlashlightNextInputTime();
+}
+
+static any Native_GetClientIsSprinting(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.IsSprinting;
+}
+
+static any Native_GetClientIsReallySprinting(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.IsReallySprinting;
+}
+
+static any Native_ClientHandleSprint(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.HandleSprint(GetNativeCell(2));
+	return 0;
+}
+
+static any Native_GetClientSprintPoints(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.Stamina;
+}
+
+static any Native_SetClientSprintPoints(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.Stamina = GetNativeCell(2);
+	return 0;
+}
+
+static any Native_SetClientStaminaRechargeTime(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.SetStaminaRechargeTime(GetNativeCell(2), GetNativeCell(3));
+	return 0;
+}
+
+static any Native_GetClientPluginSprintSpeed(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.PluginSprintSpeed;
+}
+
+static any Native_SetClientPluginSprintSpeed(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.PluginSprintSpeed = GetNativeCell(2);
+	return 0;
+}
+
+static any Native_AddClientPluginSprintSpeed(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.AddPluginSprintSpeed(GetNativeCell(2));
+	return 0;
+}
+
+static any Native_SubtractClientPluginSprintSpeed(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.SubtractPluginSprintSpeed(GetNativeCell(2));
+	return 0;
+}
+
+static any Native_GetClientPluginWalkSpeed(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.PluginWalkSpeed;
+}
+
+static any Native_SetClientPluginWalkSpeed(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.PluginWalkSpeed = GetNativeCell(2);
+	return 0;
+}
+
+static any Native_AddClientPluginWalkSpeed(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.AddPluginWalkSpeed(GetNativeCell(2));
+	return 0;
+}
+
+static any Native_SubtractClientPluginWalkSpeed(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.SubtractPluginWalkSpeed(GetNativeCell(2));
+	return 0;
+}
+
+static any Native_GetClientHasStartedBlinking(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.HasStartedBlinking;
+}
+
+static any Native_GetClientIsBlinking(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.IsBlinking;
+}
+
+static any Native_GetClientIsHoldingBlink(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.IsHoldingBlink();
+}
+
+static any Native_SetClientIsHoldingBlink(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.SetHoldingBlink(GetNativeCell(2));
+	return 0;
+}
+
+static any Native_GetClientBlinkMeter(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.BlinkMeter;
+}
+
+static any Native_SetClientBlinkMeter(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.BlinkMeter = GetNativeCell(2);
+	return 0;
+}
+
+static any Native_GetClientBlinkCount(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.BlinkCount;
+}
+
+static any Native_ClientBlink(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.Blink();
+	return 0;
+}
+
+static any Native_ClientStartPeeking(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.StartPeeking();
+	return 0;
+}
+
+static any Native_ClientEndPeeking(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.EndPeeking();
+	return 0;
+}
+
+static any Native_GetClientPageCount(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.PageCount;
+}
+
+static any Native_SetClientPageCount(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.PageCount = GetNativeCell(2);
+	return 0;
+}
+
+static any Native_ClientShowHint(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.EndPeeking();
+	return 0;
+}
+
+static any Native_GetClientIsTrapped(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.IsTrapped;
+}
+
+static any Native_SetClientIsTrapped(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.IsTrapped = GetNativeCell(2);
+	return 0;
+}
+
+static any Native_GetClientTrapCount(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.TrapCount;
+}
+
+static any Native_SetClientTrapCount(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.TrapCount = GetNativeCell(2);
+	return 0;
+}
+
+static any Native_GetClientIsLatched(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.IsLatched;
+}
+
+static any Native_SetClientIsLatched(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.IsLatched = GetNativeCell(2);
+	return 0;
+}
+
+static any Native_GetClientLatchCount(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.LatchCount;
+}
+
+static any Native_SetClientLatchCount(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.LatchCount = GetNativeCell(2);
+	return 0;
+}
+
+static any Native_GetClientLatcher(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.Latcher;
+}
+
+static any Native_SetClientLatcher(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.Latcher = GetNativeCell(2);
+	return 0;
+}
+
+static any Native_ClientUpdateMusicSystem(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.UpdateMusicSystem(GetNativeCell(2));
+	return 0;
+}
+
+static any Native_GetClientHasConstantGlow(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	return DoesEntityHaveGlow(client);
+}
+
+static any Native_SetClientPlayState(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.SetPlayState(GetNativeCell(2), GetNativeCell(3));
+	return 0;
+}
+
+static any Native_GetClientCanSeeSlender(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.CanSeeSlender(GetNativeCell(2), GetNativeCell(3), GetNativeCell(4), GetNativeCell(5));
+}
+
+static any Native_SetClientAFKTime(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.SetPlayState(GetNativeCell(2));
+	return 0;
+}
+
+static any Native_SetClientAFKState(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	player.SetPlayState(GetNativeCell(2), GetNativeCell(3));
+	return 0;
+}
+
+static any Native_CheckClientAFKTime(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	return player.CheckAFKTime();
+}
+
+static any Native_GetClientShouldBeForceChased(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	SF2NPC_BaseNPC npc = SF2NPC_BaseNPC(GetNativeCell(2));
+	return player.ShouldBeForceChased(npc);
+}
+
+static any Native_SetClientForceChaseState(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	SF2NPC_BaseNPC npc = SF2NPC_BaseNPC(GetNativeCell(2));
+	player.SetForceChaseState(npc, GetNativeCell(3));
+	return 0;
+}
+
+static any Native_GetClientIsLookingAtBoss(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	SF2NPC_BaseNPC npc = SF2NPC_BaseNPC(GetNativeCell(2));
+	return player.IsLookingAtBoss(npc);
+}
+
+static any Native_GetClientForcedOverlay(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	char material[PLATFORM_MAX_PATH];
+	player.GetForcedOverlay(material, sizeof(material));
+	SetNativeString(2, material, sizeof(material));
+	return 0;
+}
+
+static any Native_SetClientForcedOverlay(Handle plugin, int numParams)
+{
+	int client = GetNativeCell(1);
+	if (!IsValidClient(client))
+	{
+		return ThrowNativeError(SP_ERROR_NATIVE, "Invalid client index %d", client);
+	}
+
+	SF2_BasePlayer player = SF2_BasePlayer(client);
+	char material[PLATFORM_MAX_PATH];
+	GetNativeString(2, material, sizeof(material));
+	player.SetForcedOverlay(material);
+	return 0;
+}
+
+static any Native_GetClientForceDisableStatic(Handle plugin, int numParams)
+{
+	SF2_BasePlayer player = SF2_BasePlayer(GetNativeCell(1));
+	return player.StaticDisabled;
+}
+
+static any Native_SetClientForceDisableStatic(Handle plugin, int numParams)
+{
+	SF2_BasePlayer player = SF2_BasePlayer(GetNativeCell(1));
+	player.StaticDisabled = GetNativeCell(2);
+	return 0;
+}
+
+static any Native_GetClientAntiCamping(Handle plugin, int numParams)
+{
+	SF2_BasePlayer player = SF2_BasePlayer(GetNativeCell(1));
+	return player.AntiCamping;
+}
+
+static any Native_SetClientAntiCamping(Handle plugin, int numParams)
+{
+	SF2_BasePlayer player = SF2_BasePlayer(GetNativeCell(1));
+	player.AntiCamping = GetNativeCell(2);
+	return 0;
 }
